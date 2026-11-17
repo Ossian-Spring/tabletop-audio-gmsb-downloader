@@ -10,10 +10,17 @@ import type { AuthStatus } from '@shared/ipc'
  */
 export const PATREON_PARTITION = 'persist:patreon'
 
-// A current desktop Chrome UA; Electron's default UA contains "Electron" and is
-// more likely to be challenged.
-const CHROME_UA =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+// A desktop Chrome UA; Electron's default UA contains "Electron" and is more
+// likely to be challenged. The version must match the Chromium actually bundled
+// with Electron: a hard-coded old version disagrees with the client hints the
+// browser sends, which bot checks treat as a red flag and loop on.
+function platformToken(): string {
+  if (process.platform === 'darwin') return 'Macintosh; Intel Mac OS X 10_15_7'
+  if (process.platform === 'linux') return 'X11; Linux x86_64'
+  return 'Windows NT 10.0; Win64; x64'
+}
+const CHROME_MAJOR = (process.versions.chrome ?? '126').split('.')[0]
+const CHROME_UA = `Mozilla/5.0 (${platformToken()}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${CHROME_MAJOR}.0.0.0 Safari/537.36`
 
 let configured = false
 export function patreonSession(): Session {
@@ -91,6 +98,41 @@ export function login(): Promise<AuthStatus> {
       }
     })
   })
+}
+
+/**
+ * Alternative sign-in for when Patreon's bot check keeps looping in the embedded
+ * login window: the user signs in to patreon.com in their normal browser and
+ * pastes the value of its `session_id` cookie. It is stored only in this app's
+ * own persistent session, exactly where the embedded login would have put it.
+ */
+export async function loginWithSessionCookie(raw: string): Promise<AuthStatus> {
+  let value = (raw ?? '').trim()
+  // Accept a pasted "session_id=..." pair or a whole cookie header too.
+  const m = value.match(/(?:^|;\s*)session_id=([^;]+)/)
+  if (m) value = m[1].trim()
+  value = value.replace(/^"|"$/g, '')
+  if (!value || /\s/.test(value)) return { loggedIn: false, hasPaidAccess: false }
+
+  const ses = patreonSession()
+  await ses.cookies.set({
+    url: 'https://www.patreon.com',
+    domain: '.patreon.com',
+    path: '/',
+    name: 'session_id',
+    value,
+    secure: true,
+    httpOnly: true,
+    sameSite: 'no_restriction',
+    expirationDate: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 180
+  })
+  await ses.cookies.flushStore()
+
+  const status = await getAuthStatus()
+  if (!status.loggedIn) {
+    await ses.cookies.remove('https://www.patreon.com', 'session_id')
+  }
+  return status
 }
 
 export async function logout(): Promise<void> {

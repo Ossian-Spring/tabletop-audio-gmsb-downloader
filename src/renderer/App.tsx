@@ -81,6 +81,28 @@ export function App(): React.JSX.Element {
     }
   }
 
+  const [cookieOpen, setCookieOpen] = useState(false)
+  const [cookieValue, setCookieValue] = useState('')
+  const [cookieError, setCookieError] = useState<string | null>(null)
+
+  const onCookieLogin = async (): Promise<void> => {
+    setCookieError(null)
+    setBusy('Signing in…')
+    try {
+      const status = await window.api.loginWithCookie(cookieValue)
+      if (!status.loggedIn) {
+        setCookieError("That didn't work. Check you copied the whole session_id value, and that you're still signed in to patreon.com in your browser.")
+        return
+      }
+      setAuth(status)
+      setCookieOpen(false)
+      setCookieValue('')
+      await refreshCatalog(folder)
+    } finally {
+      setBusy(null)
+    }
+  }
+
   const onLogout = async (): Promise<void> => {
     await window.api.logout()
     setAuth({ loggedIn: false, hasPaidAccess: false })
@@ -254,10 +276,44 @@ export function App(): React.JSX.Element {
               <button className="primary" onClick={onLogin}>
                 Sign in to Patreon
               </button>
+              <button onClick={() => setCookieOpen((o) => !o)} title="Use this if the Patreon sign-in window keeps asking if you're a robot">
+                Sign in via your browser…
+              </button>
             </>
           )}
         </div>
       </header>
+
+      {cookieOpen && !auth?.loggedIn && (
+        <div className="cookie-login">
+          <p>
+            <strong>Sign in using your normal browser.</strong> Use this if the Patreon window keeps asking
+            whether you're a robot.
+          </p>
+          <ol>
+            <li>In Chrome or Edge, go to <code>patreon.com</code> and sign in as usual.</li>
+            <li>Press <kbd>F12</kbd>, open the <strong>Application</strong> tab, then <strong>Cookies</strong> → <code>https://www.patreon.com</code>.</li>
+            <li>Find the row named <code>session_id</code>, double-click its <strong>Value</strong>, and copy it.</li>
+            <li>Paste it below. It stays on this computer, in this app's own sign-in storage.</li>
+          </ol>
+          <div className="cookie-row">
+            <input
+              type="password"
+              placeholder="Paste session_id value"
+              value={cookieValue}
+              onChange={(e) => setCookieValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && cookieValue.trim()) void onCookieLogin()
+              }}
+            />
+            <button className="primary" onClick={() => void onCookieLogin()} disabled={!cookieValue.trim() || busy != null}>
+              Sign in
+            </button>
+            <button onClick={() => setCookieOpen(false)}>Cancel</button>
+          </div>
+          {cookieError && <p className="cookie-error">{cookieError}</p>}
+        </div>
+      )}
 
       <div className="toolbar">
         <div className="folder">

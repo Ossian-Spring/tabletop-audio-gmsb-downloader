@@ -4,6 +4,7 @@ import { IPC, type DownloadRequest, type ProgressEvent, type RendererApi } from 
 const api: RendererApi = {
   getAuthStatus: () => ipcRenderer.invoke(IPC.getAuthStatus),
   login: () => ipcRenderer.invoke(IPC.login),
+  loginWithCookie: (sessionId: string) => ipcRenderer.invoke(IPC.loginWithCookie, sessionId),
   logout: () => ipcRenderer.invoke(IPC.logout),
   chooseFolder: () => ipcRenderer.invoke(IPC.chooseFolder),
   getSavedFolder: () => ipcRenderer.invoke(IPC.getSavedFolder),

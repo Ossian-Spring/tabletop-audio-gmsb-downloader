@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { join } from 'node:path'
 import { IPC, type DownloadRequest } from '@shared/ipc'
-import { getAuthStatus, login, logout } from './auth'
+import { getAuthStatus, login, loginWithSessionCookie, logout } from './auth'
 import { buildCatalog, runDownload, rebuildLibrary } from './service'
 import { exportDebugMetadata } from './patreon'
 import { getSetting, setSetting } from './settings'
@@ -37,6 +37,7 @@ function createWindow(): BrowserWindow {
 function registerIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle(IPC.getAuthStatus, () => getAuthStatus())
   ipcMain.handle(IPC.login, () => login())
+  ipcMain.handle(IPC.loginWithCookie, (_e, sessionId: string) => loginWithSessionCookie(sessionId))
   ipcMain.handle(IPC.logout, () => logout())
 
   ipcMain.handle(IPC.getSavedFolder, () => getSetting<string>(SAVED_FOLDER_KEY))

@@ -52,6 +52,8 @@ export interface DownloadResult {
 export interface RendererApi {
   getAuthStatus(): Promise<AuthStatus>
   login(): Promise<AuthStatus>
+  /** Sign in by pasting the session_id cookie from a normal browser. */
+  loginWithCookie(sessionId: string): Promise<AuthStatus>
   logout(): Promise<void>
   chooseFolder(): Promise<string | null>
   getSavedFolder(): Promise<string | null>
@@ -70,6 +72,7 @@ export interface RendererApi {
 export const IPC = {
   getAuthStatus: 'auth:getStatus',
   login: 'auth:login',
+  loginWithCookie: 'auth:loginWithCookie',
   logout: 'auth:logout',
   chooseFolder: 'folder:choose',
   getSavedFolder: 'folder:getSaved',
